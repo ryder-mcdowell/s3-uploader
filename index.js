@@ -52,15 +52,22 @@ const askForParentAlbum = async(albums) => {
   });
 }
 
-const askForFilePath = async() => {
+const askForFile = async() => {
   return inquirer
-  .prompt([{
-    type: 'input',
-    name: 'filePath',
-    message: 'Enter file path to upload:'
-  }])
+  .prompt([
+    {
+      type: 'input',
+      name: 'filePath',
+      message: 'Enter file path to upload:'
+    },
+    {
+      type: 'input',
+      name: 'name',
+      message: 'Enter name of upload:'
+    }
+  ])
   .then(answers => {
-    return answers.filePath
+    return { path: answers.filePath, name: answers.name }
   });
 }
 
@@ -91,17 +98,16 @@ const getAlbums = async(artist) => {
   });
 }
 
-const uploadArtist = async(artistPath) => {
+const uploadArtist = async(artistFile) => {
   console.log('creating artist...');
-  const artistName = path.basename(artistPath);
   s3.putObject({
     Bucket: 'testy-tester-351541531532',
-    Key: artistName + '/'
+    Key: artistFile.name + '/'
   }, function(err, data) {
     if (err) throw err;
 
     console.log('reading artist contents...');
-    fs.readdir(artistPath, async function(err, albums) {
+    fs.readdir(artistFile.path, async function(err, albums) {
       if (err) throw err;
 
       if (!albums || albums.length === 0) {
@@ -110,7 +116,8 @@ const uploadArtist = async(artistPath) => {
       } else {
         console.log('uploading artist contents...');
         for (const albumName of albums.filter(junk.not)) {
-          await uploadAlbum(path.join(artistPath, albumName), artistName + '/');
+          let albumFile = { path: path.join(artistFile.path, albumName), name: albumName };
+          await uploadAlbum(albumFile, artistFile.name + '/');
         }
         console.log('artist uploaded!');
       }
@@ -118,17 +125,16 @@ const uploadArtist = async(artistPath) => {
   });
 }
 
-const uploadAlbum = async(albumPath, parentArtist) => {
+const uploadAlbum = async(albumFile, parentArtist) => {
   console.log('creating album...');
-  const albumName = path.basename(albumPath);
   s3.putObject({
     Bucket: 'testy-tester-351541531532',
-    Key: parentArtist + albumName + '/'
+    Key: parentArtist + albumFile.name + '/'
   }, function(err, data) {
     if (err) throw err;
 
     console.log('reading album contents...');
-    fs.readdir(albumPath, async function(err, songs) {
+    fs.readdir(albumFile.path, async function(err, songs) {
       if (err) throw err;
 
       if (!songs || songs.length === 0) {
@@ -137,7 +143,8 @@ const uploadAlbum = async(albumPath, parentArtist) => {
       } else {
         console.log('uploading album contents...');
         for (const songName of songs.filter(junk.not)) {
-          await uploadSong(path.join(albumPath, songName), parentArtist, albumName + '/');
+          let songFile = { path: path.join(albumFile.path, songName), name: songName}
+          await uploadSong(songFile, parentArtist, albumFile.name + '/');
         }
         console.log('album uploaded!');
       }
@@ -145,16 +152,14 @@ const uploadAlbum = async(albumPath, parentArtist) => {
   });
 }
 
-const uploadSong = async(songPath, parentArtist, parentAlbum) => {
+const uploadSong = async(songFile, parentArtist, parentAlbum) => {
   console.log('reading song...');
-  fs.readFile(songPath, function(err, data) {
+  fs.readFile(songFile.path, function(err, data) {
     if (err) throw err;
-    
-    const songName = path.basename(songPath);
 
     console.log('uploading song...');
     s3.upload({
-      Key: parentArtist + parentAlbum + songName,
+      Key: parentArtist + parentAlbum + songFile.name,
       Bucket: 'testy-tester-351541531532',
       Body: data,
       ACL: 'private'
@@ -174,20 +179,20 @@ const run = async() => {
       const albums = await getAlbums(parentArtist);
       if (albums) {
         const parentAlbum = await askForParentAlbum(albums);
-        const songPath = await askForFilePath();
-        await uploadSong(songPath, parentArtist, parentAlbum);
+        const songFile = await askForFile();
+        await uploadSong(songFile, parentArtist, parentAlbum);
       }
     }
   } else if (uploadType === ALBUM_UPLOAD_TYPE) {
     const artists = await getArtists();
     if (artists) {
       const parentArtist = await askForParentArtist(artists);
-      const albumPath = await askForFilePath();
-      await uploadAlbum(albumPath, parentArtist);
+      const albumFile = await askForFile();
+      await uploadAlbum(albumFile, parentArtist);
     }
   } else {
-    const artistPath = await askForFilePath();
-    await uploadArtist(artistPath);
+    const artistFile = await askForFile();
+    await uploadArtist(artistFile);
   }
 }
 
