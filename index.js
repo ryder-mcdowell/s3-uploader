@@ -110,11 +110,11 @@ const uploadArtist = async(artistPath) => {
       } else {
         console.log('uploading artist contents...');
         for (const albumName of albums.filter(junk.not)) {
-          await uploadAlbum(artistPath + '/' + albumName, artistName + '/');
+          await uploadAlbum(path.join(artistPath, albumName), artistName + '/');
         }
+        console.log('artist uploaded!');
       }
     })
-    console.log('artist uploaded!');
   });
 }
 
@@ -128,7 +128,7 @@ const uploadAlbum = async(albumPath, parentArtist) => {
     if (err) throw err;
 
     console.log('reading album contents...');
-    fs.readdir(albumPath, function(err, songs) {
+    fs.readdir(albumPath, async function(err, songs) {
       if (err) throw err;
 
       if (!songs || songs.length === 0) {
@@ -137,18 +137,7 @@ const uploadAlbum = async(albumPath, parentArtist) => {
       } else {
         console.log('uploading album contents...');
         for (const songName of songs.filter(junk.not)) {
-          fs.readFile(path.join(albumPath, songName), function(err, data) {
-            if (err) throw err;
-        
-            s3.upload({
-              Key: songName,
-              Bucket: 'testy-tester-351541531532/' + parentArtist + albumName,
-              Body: data,
-              ACL: 'private'
-            }, function (err, data) {
-              if (err) throw err;
-            })
-          });
+          await uploadSong(path.join(albumPath, songName), parentArtist, albumName + '/');
         }
         console.log('album uploaded!');
       }
