@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.395.0",
-    "inquirer": "^6.2.2"
+    "inquirer": "^6.2.2",
+    "junk": "^2.1.0"
   }
 }
